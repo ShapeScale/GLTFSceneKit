@@ -1123,7 +1123,7 @@ public class GLTFUnarchiver {
  */
             var sources = try self.loadAttributes(primitive.attributes)
             let vertexSource = sources.first { $0.semantic == .vertex }
-            var normalSource = sources.first { $0.semantic == .normal }
+            let normalSource = sources.first { $0.semantic == .normal }
             
             var elements = [SCNGeometryElement]()
             if let indexIndex = primitive.indices {
@@ -1137,11 +1137,10 @@ public class GLTFUnarchiver {
             }
             
             if normalSource == nil {
-                if let vertexSource = vertexSource {
-                    normalSource = try self.createNormalSource(for: vertexSource, elements: elements)
-                    sources.append(normalSource!)
+                if let vertexSource = vertexSource, let createdNormalSource = try? self.createNormalSource(for: vertexSource, elements: elements) {
+                    sources.append(createdNormalSource)
                 } else {
-                    // Should it be error?
+                    // Should it be error?  deeje says "no, we have reasons to support meshes without normals"
                 }
             }
             

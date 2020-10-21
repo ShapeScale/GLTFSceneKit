@@ -42,6 +42,8 @@ public class GLTFUnarchiver {
         private var workingAnimationGroup: CAAnimationGroup! = nil
     #endif
     
+    public var customGeometrySourceHandler: ((SCNGeometrySource) -> Void)? = nil
+    
     convenience public init(path: String, extensions: [String:Codable.Type]? = nil) throws {
         var url: URL?
         if let mainPath = Bundle.main.path(forResource: path, ofType: "") {
@@ -1069,9 +1071,11 @@ public class GLTFUnarchiver {
             if let semantic = attributeMap[attribute] {
                 let accessor = try self.loadVertexAccessor(index: accessorIndex, semantic: semantic)
                 sources.append(accessor)
-            } else {
+            } else if customGeometrySourceHandler != nil {
                 // user defined semantic
-                throw GLTFUnarchiveError.NotSupported("loadMesh: user defined semantic is not supported: " + attribute)
+                let semantic = SCNGeometrySource.Semantic(attribute)
+                let accessor = try self.loadVertexAccessor(index: accessorIndex, semantic: semantic)
+                customGeometrySourceHandler!(accessor)
             }
         }
         return sources

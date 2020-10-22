@@ -10,7 +10,6 @@ import SceneKit
 
 @objcMembers
 public class GLTFSceneSource : SCNSceneSource {
-    public var customGeometrySourceHandler: ((SCNGeometrySource) -> Void)? = nil
     
     private var loader: GLTFUnarchiver! = nil
     
@@ -57,8 +56,6 @@ public class GLTFSceneSource : SCNSceneSource {
     }
     
     public override func scene(options: [SCNSceneSource.LoadingOption : Any]? = nil) throws -> SCNScene {
-        self.loader.customGeometrySourceHandler = customGeometrySourceHandler
-        
         let scene = try self.loader.loadScene()
         #if SEEMS_TO_HAVE_SKINNER_VECTOR_TYPE_BUG
             let sceneData = NSKeyedArchiver.archivedData(withRootObject: scene)
@@ -68,6 +65,12 @@ public class GLTFSceneSource : SCNSceneSource {
         #else
             return scene
         #endif
+    }
+    
+    public func scene(options: [SCNSceneSource.LoadingOption : Any]? = nil, customGeometrySourceDataHandler: @escaping ((String, NSData, Int) -> Void)) throws -> SCNScene {
+        self.loader.customGeometrySourceDataHandler = customGeometrySourceDataHandler
+        
+        return try scene(options: options)
     }
     
     /*

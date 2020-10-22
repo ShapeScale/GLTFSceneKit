@@ -42,7 +42,7 @@ public class GLTFUnarchiver {
         private var workingAnimationGroup: CAAnimationGroup! = nil
     #endif
     
-    public var customGeometrySourceHandler: ((SCNGeometrySource) -> Void)? = nil
+    public var customGeometrySourceDataHandler: ((String, NSData, Int) -> Void)?
     
     convenience public init(path: String, extensions: [String:Codable.Type]? = nil) throws {
         var url: URL?
@@ -387,7 +387,7 @@ public class GLTFUnarchiver {
         }
         return indexData
     }
-    
+        
     private func loadVertexAccessor(index: Int, semantic: SCNGeometrySource.Semantic) throws -> SCNGeometrySource {
         guard index < self.accessors.count else {
             throw GLTFUnarchiveError.DataInconsistent("loadVertexAccessor: out of index: \(index) < \(self.accessors.count)")
@@ -1071,11 +1071,49 @@ public class GLTFUnarchiver {
             if let semantic = attributeMap[attribute] {
                 let accessor = try self.loadVertexAccessor(index: accessorIndex, semantic: semantic)
                 sources.append(accessor)
-            } else if customGeometrySourceHandler != nil {
-                // user defined semantic
-                let semantic = SCNGeometrySource.Semantic(attribute)
-                let accessor = try self.loadVertexAccessor(index: accessorIndex, semantic: semantic)
-                customGeometrySourceHandler!(accessor)
+            } else if customGeometrySourceDataHandler != nil {
+                guard let accessors = self.json.accessors else {
+                    throw GLTFUnarchiveError.DataInconsistent("loadVertexAccessor: accessors is not defined")
+                }
+                
+                let glAccessor = accessors[accessorIndex]
+                
+                guard usesFloatComponentsMap[glAccessor.componentType] == true else {
+                    throw GLTFUnarchiveError.NotSupported("loadAttributes: requires floats")
+                }
+                guard let componentsPerVector = componentsPerVectorMap[glAccessor.type], componentsPerVector == 1 else {
+                    throw GLTFUnarchiveError.NotSupported("loadAttributes: componentsPerVector must be 1")
+                }
+                guard let bytesPerComponent = bytesPerComponentMap[glAccessor.componentType], bytesPerComponent == 4 else {
+                    throw GLTFUnarchiveError.NotSupported("loadAttributes: bytesPerComponent must be 4")
+                }
+                
+                let vectorCount = glAccessor.count
+                let dataOffset = glAccessor.byteOffset
+                var dataStride: Int = bytesPerComponent * componentsPerVector
+                var padding = 0
+                
+                var bufferView: Data
+                if let bufferViewIndex = glAccessor.bufferView {
+                    let bv = try self.loadBufferView(index: bufferViewIndex)
+                    bufferView = bv
+                    if let ds = try self.getDataStride(ofBufferViewIndex: bufferViewIndex) {
+                        guard ds >= dataStride else {
+                            throw GLTFUnarchiveError.DataInconsistent("loadVertexAccessor: dataStride is too small: \(ds) < \(dataStride)")
+                        }
+                        padding = ds - dataStride
+                        dataStride = ds
+                    }
+                } else {
+                    let dataSize = dataStride * vectorCount
+                    bufferView = Data(count: dataSize)
+                }
+                
+                bufferView = bufferView.subdata(in: dataOffset..<dataOffset + dataStride * vectorCount - padding)
+                
+                if let data = bufferView as? NSData {
+                    customGeometrySourceDataHandler?(attribute, data, vectorCount)
+                }
             }
         }
         return sources

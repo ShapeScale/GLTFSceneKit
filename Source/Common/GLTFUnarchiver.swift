@@ -1078,15 +1078,8 @@ public class GLTFUnarchiver {
                 
                 let glAccessor = accessors[accessorIndex]
                 
-                guard usesFloatComponentsMap[glAccessor.componentType] == true else {
-                    throw GLTFUnarchiveError.NotSupported("loadAttributes: requires floats")
-                }
-                guard let componentsPerVector = componentsPerVectorMap[glAccessor.type], componentsPerVector == 1 else {
-                    throw GLTFUnarchiveError.NotSupported("loadAttributes: componentsPerVector must be 1")
-                }
-                guard let bytesPerComponent = bytesPerComponentMap[glAccessor.componentType], bytesPerComponent == 4 else {
-                    throw GLTFUnarchiveError.NotSupported("loadAttributes: bytesPerComponent must be 4")
-                }
+                let componentsPerVector = componentsPerVectorMap[glAccessor.type]!
+                let bytesPerComponent = bytesPerComponentMap[glAccessor.componentType]!
                 
                 let vectorCount = glAccessor.count
                 let dataOffset = glAccessor.byteOffset
@@ -1111,7 +1104,7 @@ public class GLTFUnarchiver {
                 
                 bufferView = bufferView.subdata(in: dataOffset..<dataOffset + dataStride * vectorCount - padding)
                 
-                if let data = bufferView as? NSData {
+                if let data = bufferView as NSData? {
                     customGeometrySourceDataHandler?(attribute, data, vectorCount)
                 }
             }
